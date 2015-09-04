@@ -1,3 +1,5 @@
+require 'pathname'
+
 ##
 # Ignore things
 ##
@@ -19,30 +21,34 @@ class IgnoreFile
 
   def push(*arg)
     statements.push(*arg.flatten.map(&:strip))
-    statements.sort!
-    statements.uniq!
+
+    self
   end
   alias_method :<<, :push
 
-  def load_file(ifile)
-    push(File.readlines(ifile).map(&:strip).reject do |line|
+  def load_file(file)
+    file = Pathname.new(file)
+    return unless file.exist?
+
+    push(file.readlines.map(&:strip).reject do |line|
       line.empty? || line =~ COMMENT_OR_WHITESPACE
     end)
+
+    self
   end
 
   def ignored?(file)
-    statements.any? { |statement| File.fnmatch?(statement, file) }
+    return true if file.to_s.strip.empty?
+
+    file = Pathname.new(file)
+    statements.any? { |statement| file.fnmatch?(statement) }
   end
 
-  def apply(*files)
-    files.flatten.reject do |file|
-      file.strip.empty? || ignored?(file)
-    end
+  def apply(files)
+    files.flatten.reject { |file| ignored?(file) }
   end
 
   def apply!(files)
-    files.reject! do |file|
-      file.strip.empty? || ignored?(file)
-    end
+    files.flatten.reject! { |file| ignored?(file) }
   end
 end
